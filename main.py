@@ -5,17 +5,9 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from bs4 import BeautifulSoup
 from email.message import EmailMessage
-from dotenv import load_dotenv  # Import dotenv to load environment variables
-
-# Load environment variables from a .env file (if using one)
-load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
-
-# Get email credentials from environment variables
-EMAIL_SENDER = os.getenv("EMAIL_SENDER")
-EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
 def get_email(app_url):
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -27,17 +19,17 @@ def get_email(app_url):
         return email_tag["href"].replace("mailto:", "")
     return None
 
-def send_email(to_email, subject, body):
+def send_email(to_email, subject, body, sender, auth):
     try:
         msg = EmailMessage()
-        msg["From"] = EMAIL_SENDER
+        msg["From"] = sender
         msg["To"] = to_email
         msg["Subject"] = subject
         msg.set_content(body)
 
         # Connect to Gmail's SMTP server
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+            server.login(sender, auth)
             server.send_message(msg)
         return True
     except Exception as e:
@@ -50,6 +42,8 @@ def fetch_and_send_email():
     url = data.get("url")
     subject = data.get("subject")
     body = data.get("body")
+    sender = data.get("sender")
+    auth = data.get("auth")
     
     if not url:
         return jsonify({"error": "No URL provided"}), 400
@@ -58,7 +52,7 @@ def fetch_and_send_email():
     if not developer_email:
         return jsonify({"error": "Developer email not found"}), 404
     
-    if send_email(developer_email, subject, body):
+    if send_email(developer_email, subject, body, sender, auth):
         return jsonify({"message": "Email sent successfully", "to": developer_email})
     else:
         return jsonify({"error": "Failed to send email"}), 500
@@ -69,11 +63,13 @@ def send_email_test():
     email = data.get("email")
     subject = data.get("subject")
     body = data.get("body")
+    sender = data.get("sender")
+    auth = data.get("auth")
     
     if not email:
         return jsonify({"error": "No Email provided"}), 400
     
-    if send_email(email, subject, body):
+    if send_email(email, subject, body, sender, auth):
         return jsonify({"message": "Email sent successfully", "to": email})
     else:
         return jsonify({"error": "Failed to send email"}), 500
